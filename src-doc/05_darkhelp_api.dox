@@ -1,0 +1,84 @@
+/** @page API %DarkHelp C++ API
+
+The %DarkHelp C++ API is a wrapper (not a replacement!) for the @p libdarknet.so C API.
+
+To use %DarkHelp, you must include the project header file within your C++ application:
+
+~~~~{.cpp}
+#include <DarkHelp.hpp>
+~~~~
+
+Instantiate a DarkHelp object.  These can easily be placed either on the stack, or created dynamically with @p new.  You'll want this object to persist for a long time, as the constructor loads the neural network into memory which takes a (relatively) long time.
+
+~~~~{.cpp}
+const std::string config_file	= argv[1];
+const std::string weights_file	= argv[2];
+const std::string names_file	= argv[3];
+
+DarkHelp darkhelp(config_file, weights_file, names_file);
+~~~~
+
+At this point, the neural network has been fully loaded and is ready to use.  But just prior to using it, if you have certain settings you'd like to tweak, now is the time.  Several examples:
+
+~~~~{.cpp}
+DarkHelp darkhelp(...);
+
+darkhelp.threshold						= 0.35;
+darkhelp.include_all_names				= false;
+darkhelp.names_include_percentage		= true;
+darkhelp.annotation_include_duration	= true;
+darkhelp.annotation_include_timestamp	= false;
+darkhelp.sort_predictions				= DarkHelp::ESort::kAscending;
+~~~~
+
+The only thing left is to loop through every image and call @ref DarkHelp::predict().  If you want %DarkHelp to annotate the image with the results, you must also call @ref DarkHelp::annotate():
+
+~~~~{.cpp}
+DarkHelp darkhelp(...);
+
+for (const auto & filename : get_all_image_names())
+{
+	// analyze the image and return a vector of structures with all sorts of information
+	const auto result = darkhelp.predict(filename);
+
+	// get DarkHelp to annotate the image with the most recent results
+	cv::Mat output = darkhelp.annotate();
+
+	// fictional function to process the results and the annotated image
+	handle_image(output, result);
+}
+~~~~
+
+Calling any of the @ref DarkHelp::predict() overloads gives back a @p std::vector of @ref DarkHelp::PredictionResult objects, which should be extremely simple to manage.  While the previous example used image filenames, you can also use @p cv::Mat objects.  Here is an example with @p cv::Mat images obtained from video frames:
+
+~~~~{.cpp}
+DarkHelp darkhelp(cfg_filename, weights_filename, names_filename);
+cv::VideoCapture cap("sample.mp4");
+while (true)
+{
+	cv::Mat frame;
+	cap >> frame;
+	if (frame.empty())
+	{
+		break;
+	}
+
+	const auto result = darkhelp.predict(frame);
+
+	// display the results as a block of text (not an annotated image)
+	std::cout << result << std::endl;
+}
+cap.release();
+~~~~
+
+For example, the @p std::cout line in the previous example might results in the following text:
+
+~~~~{.txt}
+-> prediction results: 2
+-> 1/2: "stop sign 100%" #0 prob=0.999795 x=500 y=326 w=253 h=227 entries=1
+-> 2/2: "street name 100%" #2 prob=0.999893 x=484 y=231 w=267 h=72 entries=1
+~~~~
+
+But most likely you'll want to handle the @p result vector yourself, instead of dumping lines of text to @p std::cout.  See @ref DarkHelp::PredictionResult and the various members it provides, such as @ref DarkHelp::PredictionResult::rect and @ref DarkHelp::PredictionResult::all_probabilities.
+
+*/
